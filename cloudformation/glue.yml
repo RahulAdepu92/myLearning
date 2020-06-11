@@ -1,0 +1,412 @@
+# @Author : Rahul Adepu
+# This yml script deploys glue jobs and associated triggers if any by creating a stack "MyGlueStack"
+# Note: 1. prior to execution of this yml, glue scripts need to be placed in <ScriptLocation> and the latest wheel file should be in path <extra-py-files>
+#       2. deployment would be taken care by a single command(read "repo/deploy-sit.ps1") when run in AWS CLI and the paramteres are dynamaically changed as per environment there
+#       3. If you make any code changes in "GlueJob1", just upload the latest script to s3 and rerun existing "MyGlueStack" which overrides "GlueJob1" with new code leaving the #          other glue jobs unchanged
+# Challenges faced: adding a wheel file to the resource --> declare '--extra-py-files' in "DefaultArguments" property
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Accumhub Lambda Glue Formation Template'
+Parameters:
+  accountProfile:
+    Description: provides the AWS account number as per enviroment
+    Type: String
+    Default: 795038802291
+  glueRoleArn:
+    Description: provides ARN of glue role that provides permissions to execute Glue jobs
+    Type: String
+    Default: arn:aws:iam::795038802291:role/irx-accum-glue-role
+  redshiftGlueArn:
+    Type: String
+    Default: arn:aws:iam::795038802291:role/irx-accum-phi-redshift-glue
+    Description: provides ARN of redshift-glue role that provides permissions to run execute copy/unload commands in redshift database
+  scriptsPath:
+    Type: String
+    Default: irx-accumhub-dev-data/deployment
+    Description: provides the bucket name where glue scripts, .whl and .zip needed for both Glue jobs and Lamda functions are resided
+  dataBucket:
+    Type: String
+    Default: irx-accumhub-dev-data
+    Description: provides the bucket name where the incoming/outgoing files data is processed and stored.
+  wheelVersion:
+    Description: provides version number of .whl file that is used for Glue job execution
+    Type: String
+    Default: 0.1
+  dbConnection:
+    Description: provides connection name that is used to access redshift database while running Glue jobs
+    Type: String
+    Default: irx-accums-phi-rds-clr
+  nameSuffix:
+    Description: provides suffix to each glue job/lambda function that varies from run to run. This will be useful to distinguish developer specific function while testing his code.
+    Type: String
+    Default: _mvp2
+  tagEnvironment:
+    Description: provides the environment name whose value will be replaced in few tags and also utilised by some environment variables in functions/jobs.
+    Type: String
+    Default: DEV
+  fileNameEnvironment:
+    Description: provides the environment name whose value will be replaced in incoming/outgoing file names in function variables
+    Type: String
+    Default: TST
+  deploymentEnvironment:
+    Description: provides the environment name where deployment is happening and is used as environment variable by many functions
+    Type: String
+    Default: SIT
+  fileType:
+    Description: provides the environment name whose value will be replaced in environment variables in functions/jobs.
+    Type: String
+    Default: T
+  secretManager:
+    Description: complete name of the secret manager service that provides credentails for connecting to redshift database
+    Type: String
+    Default: irx-ahub-dv-redshift-cluster  
+  tagRegion:
+    Description: provides the global region of AWS account used in tags
+    Type: String
+    Default: AWS -East 1
+    
+Resources:
+  processBciFileDeliverToCvs:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_process_bci_file_deliver_to_cvs.py          
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub irxah_process_bci_file_deliver_to_cvs${nameSuffix}
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+     
+  processHourlyCvsFileLoadInDatabase:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_process_hourly_cvs_file_load_in_database.py          
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub irxah_process_hourly_cvs_file_load_in_database${nameSuffix}
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+
+  generateDailyFileFromCvsHourlyDataDeliverToBci:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_generate_daily_file_from_cvs_hourly_data_deliver_to_bci.py
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl
+        #set these variables as per development requirement; developer has control over these values
+        --S3_OUTBOUND_PATH: outbound/bci/txtfiles
+        --IAM_ARN: !Ref redshiftGlueArn
+        --S3_OUTBOUND_DQ_FILE_PREFIX: !Sub ACCDLYINT_${fileNameEnvironment}_BCI_
+        --S3_ACCUMHUB_BUCKET: !Ref dataBucket
+        --CLIENT_FILE_ID: 4
+        --FILE_PROCESSING_LOCATION: outbound/bci/temp
+        --SECRET_NAME: !Ref secretManager
+        --S3_OUTBOUND_DR_FILE_PREFIX: !Sub ACCDLYERR_${fileNameEnvironment}_BCI_
+        --S3_FILE_NAME: "Not Applicable"
+        --FILE_TYPE: !Ref fileType
+        --ENV_LEVEL: !Ref deploymentEnvironment
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub irxah_generate_daily_file_from_cvs_hourly_data_deliver_to_bci${nameSuffix}
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+     
+  LoadUnloadMergeAccumhist:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_process_cvs_acc_history_file_deliver_to_cvs.py         
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub irxah_process_cvs_acc_history_file_deliver_to_cvs${nameSuffix}
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+      
+  processReconFileInDatabase:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_process_recon_file_in_database.py         
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub irxah_process_recon_file_in_database${nameSuffix}
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+          
+  logJobStatus:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_log_job_status.py         
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl 
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub irxah_log_job_status${nameSuffix}
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+
+  inboundBciFileSla:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_inbound_bci_file_sla.py
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl
+        #set these variables as per development requirement; developer has control over these values
+        --CLIENT_FILE_ID: 1
+        --SECRET_NAME: !Ref secretManager
+        --ENVIRONMENT: !Ref deploymentEnvironment
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub  irxah_inbound_bci_file_sla
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+
+  inboundCvsFileSla:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_inbound_cvs_file_sla.py
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl
+        #set these variables as per development requirement; developer has control over these values
+        --CLIENT_FILE_ID: 3
+        --SECRET_NAME: !Ref secretManager
+        --ENVIRONMENT: !Ref deploymentEnvironment
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub  irxah_inbound_cvs_file_sla
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+
+  inboundCvsReconFileSla:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_inbound_cvs_recon_file_sla.py
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl
+        #set these variables as per development requirement; developer has control over these values
+        --CLIENT_FILE_ID: 6
+        --SECRET_NAME: !Ref secretManager
+        --ENVIRONMENT: !Ref deploymentEnvironment
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub  irxah_inbound_cvs_recon_file_sla
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+
+  outboundBciFileSla:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_outbound_bci_file_sla.py
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl
+        #set these variables as per development requirement; developer has control over these values
+        --CLIENT_FILE_ID: 4
+        --SECRET_NAME: !Ref secretManager
+        --ENVIRONMENT: !Ref deploymentEnvironment
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub  irxah_outbound_bci_recon_file_sla
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+
+  processCvsFileManually:
+    Type: AWS::Glue::Job
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub s3://${scriptsPath}/glue/irxah_process_cvs_file_manually.py
+      ExecutionProperty:
+        MaxConcurrentRuns: 10
+      DefaultArguments:
+        --extra-py-files: !Sub s3://${scriptsPath}/irxah_common-${wheelVersion}-py3-none-any.whl
+        #set these variables as per development requirement; developer has control over these values
+        --CLIENT_FILE_ID: 3
+        --SECRET_NAME: !Ref secretManager
+        --ENVIRONMENT: !Ref deploymentEnvironment
+        --HELP_TEXT: Specify time or list of file names. Please put NA in parameters if you do not want to use it.
+        --START_TIME_IN_24_HOUR_FORMAT_LOCAL: Specify the time in the respective local time zone in 24 hour format in mmdddyyyhh24miss here.
+        --END_TIME_IN_24_HOUR_FORMAT_LOCAL: Specify the time in the respective local time zone in 24 hour format in mmdddyyyhh24miss here.
+        --LIST_OF_CVS_FILE_NAMES: List of files that needs to be marked as Available to be sent to BCI
+        --GLUE_JOB_TO_RUN: !Ref generateDailyFileFromCvsHourlyDataDeliverToBci
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub  irxah_process_cvs_file_manually
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbConnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL' , Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Environment : !Ref tagEnvironment , Operating System : N/A , Location : !Ref tagRegion }
+
+  generateDailyFileFromCvsDeliverToBciTrigger:
+    #this is a scheduled trigger and points to the gluejob in resource "generateDailyFileFromCvsHourlyDataDeliverToBci" 
+    Type: AWS::Glue::Trigger
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+     Type: SCHEDULED
+     Schedule: cron(00 10 * * ? *)
+     Actions:
+        - JobName: !Ref generateDailyFileFromCvsHourlyDataDeliverToBci
+     Name: !Sub irxah_export_cvs_data_to_bci${nameSuffix}
+
+  inboundBciFileSlaTrigger:
+    #this is a scheduled trigger and points to the gluejob in resource "inboundBciFileSla"
+    Type: AWS::Glue::Trigger
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+     Type: SCHEDULED
+     Schedule: cron(30 13 * * ? *)
+     Actions:
+        - JobName: !Ref inboundBciFileSla
+     Name: !Sub irxah_inbound_bci_file_sla_trigger
+
+  inboundCvsFileSlaTrigger:
+    #this is a scheduled trigger and points to the gluejob in resource "inboundBciFileSla"
+    Type: AWS::Glue::Trigger
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+     Type: SCHEDULED
+     Schedule: cron(30 6/2 * * ? *)
+     Actions:
+        - JobName: !Ref inboundCvsFileSla
+     Name: !Sub irxah_inbound_cvs_file_sla_trigger
+
+  inboundCvsReconFileSlaTrigger:
+    #this is a scheduled trigger and points to the gluejob in resource "inboundBciFileSla"
+    Type: AWS::Glue::Trigger
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+     Type: SCHEDULED
+     Schedule: cron(00 14 * * ? *)
+     Actions:
+        - JobName: !Ref inboundCvsReconFileSla
+     Name: !Sub irxah_inbound_cvs_recon_file_sla_trigger
+
+  outboundBciFileSlaTrigger:
+    #this is a scheduled trigger and points to the gluejob in resource "inboundBciFileSla"
+    Type: AWS::Glue::Trigger
+    #DeletionPolicy: Retain     ##enable this option if you need this resource to remain alive when you delete the stack
+    Properties:
+     Type: SCHEDULED
+     Schedule: cron(30 10 * * ? *)
+     Actions:
+        - JobName: !Ref outboundBciFileSla
+     Name: !Sub irxah_outbound_bci_file_sla_trigger
