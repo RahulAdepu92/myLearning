@@ -1,4 +1,4 @@
-#####to iterate lines
+#####to iterate lines#####
 
 def iterate():
     with open('C:/Users/ag20492/Desktop/ACCUMHUB/srcfiles/MVP2/detail.txt', 'r') as input_file,\
@@ -13,7 +13,7 @@ iterate()
 
 
 
-#####to append header and trialer for above created lines
+#####to append header and trialer for above created lines#####
 
 def final():
     with open('C:/Users/ag20492/Desktop/ACCUMHUB/srcfiles/MVP2/iteratedfile.txt', 'r') as iteratedfile,\
@@ -32,7 +32,7 @@ def final():
         
 final()
 
-#####to print and count number of lines in a file
+#####to print and count number of lines in a file#####
 
 file = open(r"C:\Users\ag20492\Desktop\ACCUMHUB\srcfiles\MVP2\ACCDLYINT_TST_BCIINRX_200421065111-1k records.txt",'r')
 print(file.read())			   #reads the entire file and displays all lines
@@ -47,7 +47,17 @@ file.seek(0)                   #to close the above opened file.
 
 
 
+-Instead you can write:
+with open(r"C:\Users\ag20492\Desktop\ACCUMHUB\srcfiles\MVP2\ACCDLYINT_TST_BCIINRX_200421065111-1k records.txt",'r') as file:
+	print(len(file.readlines()))
 
 
+#####to check row level duplicates#####
 
-
+with open(r"C:\Users\ag20492\Desktop\ACCUMHUB\srcfiles\MVP2\check_duplicate.txt",'r') as file:
+     seen = set()
+     for line in file:
+         if line in seen:
+             print(line)
+         else:
+             seen.add(line)
