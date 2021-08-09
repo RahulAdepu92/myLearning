@@ -57,5 +57,11 @@ total_bill = 0
 for x in product_prices:
 	total_bill += x
 print(f"Your bill is: {total_bill}")
+
+
+refernce links:
+
+https://www.w3schools.com/python/python_while_loops.asp
+https://www.programiz.com/python-programming/for-loop
 	
 

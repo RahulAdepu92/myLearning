@@ -59,3 +59,13 @@ customers = {"name": "Rahul",
 
 print(customers["age"])
 >>29
+
+--if you pass a key which is not present in the dictionary(ex: print(customers["AGE"], print(customers["dob"])) , it throws an error. To avoid it we can use get() function as:
+
+print(customers.get("dob"))
+>>None
+
+---you can default this value if none reurns as:
+
+print(customers.get("dob", "15th June,1992"))
+>>None
