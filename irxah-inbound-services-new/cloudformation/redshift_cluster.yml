@@ -1,0 +1,117 @@
+# @Author : Rahul Adepu
+# This yml script creates redshift cluster in the preferred AWS region and account(defined during deployment)
+# Note : ClusterIdentifier is the actual cluster name you define
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Accum Hub RedShift Stack
+Parameters:
+  availabilityZone:
+    Description: provides the availability zone in a global region of AWS account
+    Type: String
+    Default: us-east-2a
+  glueRoleArn:
+    Description: provides ARN of glue role that provides permissions to execute Glue jobs
+    Type: String
+    Default: arn:aws:iam::974356221399:role/irx-accum-glue-role
+  redshiftRoleArn:
+    Description: provides ARN of redshift role that provides permissions to access redshift db
+    Type: String
+    Default: arn:aws:iam::974356221399:role/aws-service-role/redshift.amazonaws.com/AWSServiceRoleForRedshift
+  redshiftGlueArn:
+    Type: String
+    Default: arn:aws:iam::974356221399:role/irx-accum-phi-redshift-glue
+  tagEnvironment:
+    Description: provides the environment name whose value will be replaced in few tags and also utilised by some environment variables in functions/jobs.
+    Type: String
+    Default: UAT
+  kmsKeyIdRedhsift:
+    Description: provides AWS KMS Key id for Redhsift db used to manage and securely store the keys
+    Type: String
+    Default: arn:aws:kms:us-east-2:950511364051:key/b78f643b-1619-4194-a729-2f4a82773fc1
+  securityGroups:
+    Description: list of SecurityGroupIds in your AWS account VPC
+    Type: CommaDelimitedList
+    Default: sg-08044fcb5b66ddae6, sg-01daa27010032aaed, sg-0de06c5e0467d1c5a
+  tagRegion:
+    Description: provides the global region of AWS account used in tags
+    Type: String
+    Default: AWS -East 2
+  subnetGroup:
+    Description: provides the subntet group id for the AWS account region
+    Type: String
+    Default: cluster-subnet-group-1-test
+
+Resources:
+  RedshiftCluster:
+    Type: AWS::Redshift::Cluster
+    Properties:
+      AllowVersionUpgrade : false
+      AvailabilityZone: !Ref availabilityZone
+      #Cluster Identifier, must be uique - change this  ( change me)
+      ClusterIdentifier: irx-accumhub
+      #Replace the following line with the respective Cluster Subnet Group Name ( change me)
+      ClusterSubnetGroupName: !Ref subnetGroup
+      ClusterType: single-node
+      #NumberOfNodes: 1 , uncomment this in case of multi-node, and specify NumberofNodes > 1
+      DBName: devdb # Change the database name to suit your taste ( change me)
+      Port: 5439
+      Encrypted: true
+      IamRoles: #These are account specific IAM Roles ( change me)
+        - !Ref redshiftRoleArn
+        - !Ref glueRoleArn
+        - !Ref redshiftGlueArn
+      NodeType: dc2.large
+      KmsKeyId: !Ref kmsKeyIdRedhsift # This is must and account specific ( change me)
+      MasterUserPassword: RSZtQfZOXmjM1 # Master Password ( change me)
+      MasterUsername: awsuser # Master User ( change me)
+      PubliclyAccessible: false
+      VpcSecurityGroupIds: !Ref securityGroups
+      Tags:
+       -
+         Key: Date/Time
+         Value: 20200318101010
+       -
+         Key: Opt In/Opt Out
+         Value: Yes
+       -
+         Key: BarometerIT
+         Value: 041800001L7T
+       -
+         Key: COSTCENTER
+         Value: 6590196400
+       -
+         Key: COMPLIANCE
+         Value: PHI
+       -
+         Key: IT Department
+         Value: Anbu Ramaiyan
+       -
+         Key: Database
+         Value: RedShift
+       -
+         Key: Resource Type
+         Value: DB
+       -
+         Key: NAME
+         Value: !Sub 'IRX-AHUB-REDSHIFT-${tagEnvironment}-DB'
+       -
+         Key: Layer
+         Value: CODE
+       -
+         Key: Owner Department
+         Value: Saneeja Abdeen
+       -
+         Key: Virtualization Platform
+         Value: N/A
+       -
+         Key: Operating System
+         Value: N/A
+       -
+         Key: Company
+         Value: IRX
+       -
+         Key: Environment
+         Value: !Ref tagEnvironment
+       -
+         Key: Location
+         Value: !Ref tagRegion

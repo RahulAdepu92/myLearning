@@ -1,0 +1,11 @@
+pytest
+prospector
+black
+pg
+psycopg2
+pg8000 
+croniter
+pytz
+better-exceptions
+frosch 
+pysnooper

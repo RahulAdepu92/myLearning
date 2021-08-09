@@ -1,0 +1,34 @@
+{
+    "file": {
+        "BCI": [
+            "validate_header_is_first_line",
+            "validate_trailer_is_last_line",
+            "validate_lines_are_detail"
+        ],
+        "CVS": [
+            "validate_header_is_first_line"
+        ]
+    },
+    "detail": {
+        "BCI": {
+            "transmission_file_type": {
+                "position": [ 202, 204 ],
+                "required": true
+            },
+            "transmission_id": {
+                "position": [ 357, 407 ],
+                "required": true
+            },
+            "benefit_type": {
+                "position": [ 407, 408 ],
+                "required": false,
+                "range": [ "", "9" ]
+            },
+            "date_of_birth": {
+                "position": [ 677, 685 ],
+                "required": true,
+                "format": "$date"
+            }
+        }
+    }
+}

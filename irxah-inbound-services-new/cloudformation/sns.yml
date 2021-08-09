@@ -1,0 +1,117 @@
+# @Author : Rahul Adepu
+# This yml script creates 2 SNS topics that are being used by Lambda functions and adds one email type subscription to it.
+# Note : 1.if you want to create a new topic name and subscription, you can modify the parameters section(trough parameter overrides command in cli) and execute the stack
+#        2.you can subscribe to only one email at a time through this script as endpoint parameter is of string type 
+#        3.you will have to create different parameters (like endpoint1,endpoint2,....) for multiple subscriptions(like email1,email2,......)
+#        4.this will not override older subscription but will only append the new subscription
+# Challenges faced: retaining the old subscription and appending a new one
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates a sns topic' 
+Parameters:
+  endpointEmail:
+    Type: String
+    Default: test@email.com
+    Description: The endpoint that receives notifications from the Amazon SNS topic. The endpoint value depends on the protocol that you specify.
+  topicName1:
+    Description: provides SNS topic name used for sending notification upon zip/unzip errors
+    Type: String
+    Default: irx_ahub_incoming_file_extraction_error_notification
+  topicName2:
+    Description: provides SNS topic name used for sending notification upon data errors in incoming file
+    Type: String
+    Default: irx_ahub_error_notification
+  topicName3:
+    Description: provides SNS topic name used for sending notification for sla violation
+    Type: String
+    Default: irx_ahub_sla_notification
+  topicName4:
+    Description: provides SNS topic name used for sending notification upon processing file
+    Type: String
+    Default: irx_ahub_processing_notification
+  topicName5:
+    Description: provides SNS topic name used for sending notification upon processing outbound file
+    Type: String
+    Default: irx_ahub_outbound_file_generation_notification
+  topicName6:
+    Description: provides SNS topic name used for sending notification upon processing outbound file
+    Type: String
+    Default: irx_ahub_inbound_file_arrival_notification
+Resources:
+  SNSTopic1:
+    Type: AWS::SNS::Topic
+    #DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TopicName: !Ref topicName1
+  subscription1:
+    Type: AWS::SNS::Subscription
+    UpdateReplacePolicy: Retain
+    Properties:
+      Endpoint: !Ref endpointEmail
+      Protocol: email
+      TopicArn: !Ref 'SNSTopic1'
+  SNSTopic2:
+    Type: AWS::SNS::Topic
+    #DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TopicName: !Ref topicName2
+  subscription2:
+    Type: AWS::SNS::Subscription
+    UpdateReplacePolicy: Retain
+    Properties:
+      Endpoint: !Ref endpointEmail
+      Protocol: email
+      TopicArn: !Ref 'SNSTopic2'
+  SNSTopic3:
+    Type: AWS::SNS::Topic
+    #DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TopicName: !Ref topicName3
+  subscription3:
+    Type: AWS::SNS::Subscription
+    UpdateReplacePolicy: Retain
+    Properties:
+      Endpoint: !Ref endpointEmail
+      Protocol: email
+      TopicArn: !Ref 'SNSTopic3'
+  SNSTopic4:
+    Type: AWS::SNS::Topic
+    #DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TopicName: !Ref topicName4
+  subscription4:
+    Type: AWS::SNS::Subscription
+    UpdateReplacePolicy: Retain
+    Properties:
+      Endpoint: !Ref endpointEmail
+      Protocol: email
+      TopicArn: !Ref 'SNSTopic4'
+  SNSTopic5:
+    Type: AWS::SNS::Topic
+    #DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TopicName: !Ref topicName5
+  subscription5:
+    Type: AWS::SNS::Subscription
+    UpdateReplacePolicy: Retain
+    Properties:
+      Endpoint: !Ref endpointEmail
+      Protocol: email
+      TopicArn: !Ref 'SNSTopic5'
+  SNSTopic6:
+    Type: AWS::SNS::Topic
+    #DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TopicName: !Ref topicName6
+  subscription6:
+    Type: AWS::SNS::Subscription
+    UpdateReplacePolicy: Retain
+    Properties:
+      Endpoint: !Ref endpointEmail
+      Protocol: email
+      TopicArn: !Ref 'SNSTopic6'

@@ -1,0 +1,129 @@
+# Small test script for checking production permissions.
+# As a result of successful execution we should have an irxah_test_permission glue job
+# and a irxah_test_permission lambda.
+# See  https://confluence.anthem.com/display/IBAH/How+to+Setup+awscli
+# for setting up aws cli and running samlapi.py
+# Once configured with an ahub_prod and ahub_prodx entries,
+# authenticate with:
+#   python samlapi.py ahub_prod 'your ha password'
+# Then test deployment with: 
+#   aws --profile ahub_prodx cloudformation deploy --template-file small_test.yml --stack-name smalltest
+# To test deployment to another environment,
+# use --parameter-overrides.
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Test file for production deployment'
+Parameters:
+  dbconnection:
+    Description: connects to redshift database
+    Type: String
+    Default: proddb_ahub_stg_stg_accum_dtl
+  scriptsBucket:
+    Description: Bucket where the scripts are located
+    Type: String
+    Default: aws-glue-scripts-206388457288-us-east-1
+  glueRoleArn:
+    Description: Glue Role to use in execution
+    Type: String
+    Default: arn:aws:iam::206388457288:role/irx-accum-glue-role   
+  lambdaRoleArn:
+    Type: String
+    Default: arn:aws:iam::206388457288:role/irx-accum-lambda-s3-execute-role
+    Description: Full ARN of lambda role to use for functions
+Resources:
+  helloWorldGlueTest:
+    Type: AWS::Glue::Job
+    Properties:
+      Command:
+        Name: pythonshell
+        PythonVersion: 3
+        ScriptLocation: !Sub
+          - s3://${s3Bucket}/glue/hello_world.py
+          - s3Bucket: !Ref scriptsBucket          
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      MaxCapacity: 1
+      Timeout: 2880
+      MaxRetries: 1
+      GlueVersion: 1.0
+      Name: !Sub irxah_test_permission
+      Role: !Ref glueRoleArn
+      Connections:
+        Connections:
+          - !Ref dbconnection
+      Tags : { BarometerIT : 041800001L7T , Company : IRX , Opt In/Opt Out : Yes , Date/Time : 20200318101010 , Application Runtime Platform : Python 3.7 , COSTCENTER : 6590196400 , COMPLIANCE : PHI , Layer : ETL , Owner Department : Saneeja Abdeen , NAME: irxah_test_permission, Resource Type : GLUE , Database : RedShift , Virtualization Platform : N/A , Operating System : N/A , Location : AWS -East 1 }
+  helloWorldLambdaTest:
+   Type: 'AWS::Lambda::Function'
+   Properties:
+     Code:
+       ZipFile: |
+         def lambda_handler(event, context):
+            print("Hello World!", event)
+            return 'This is a Lambda Function';
+     Environment:
+       Variables:
+         ARCHIVE_FOLDER: inbound/bci/archive
+     FunctionName: irxah_test_permission
+     Handler: 'index.lambda_handler'
+     Role: !Ref lambdaRoleArn
+     Tags: 
+       - 
+         Key: Date/Time
+         Value: 20200318101010
+       -  
+         Key: Application Runtime Platform
+         Value: Python 3.7
+       - 
+         Key: Opt In/Opt Out
+         Value: Yes
+       - 
+         Key: BarometerIT
+         Value: 041800001L7T
+       - 
+         Key: COSTCENTER
+         Value: 6590196400
+       - 
+         Key: COMPLIANCE
+         Value: PHI
+       - 
+         Key: IT Department
+         Value: Anbu Ramaiyan
+       - 
+         Key: Database
+         Value: RedShift
+       - 
+         Key: Resource Type
+         Value: LAMBDA
+       - 
+         Key: NAME
+         Value: irxah_test_permission
+       - 
+         Key: Layer
+         Value: CODE
+       - 
+         Key: Owner Department
+         Value: Saneeja Abdeen
+       - 
+         Key: Virtualization Platform
+         Value: N/A
+       - 
+         Key: Application
+         Value: AHUB
+       - 
+         Key: Operating System
+         Value: N/A
+       - 
+         Key: Company
+         Value: IRX
+       - 
+         Key: Location
+         Value: AWS -East 1
+         
+     MemorySize: 3008
+     Timeout: 900
+     Runtime: 'python3.7'
+     VpcConfig:
+       SecurityGroupIds:
+         - sg-093e1ad03c37eec00
+       SubnetIds:
+         - subnet-03331ffa945363231
+          

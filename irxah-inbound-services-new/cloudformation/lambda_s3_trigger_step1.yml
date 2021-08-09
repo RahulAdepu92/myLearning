@@ -1,0 +1,538 @@
+# @Author : Rahul Adepu
+# This yml script creates lambda functions where the code is imported from layer in <Layers> through the handler <Handler>
+# Note : 1. prior to execution of this yml make sure lambda layer is created and latest code is added to its latest version
+#        2. creates lambda functions and allows s3 buckets to trigger them by setting invoke permission resource
+#        3. FunctionName is the lambda name and can be customized 
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Accumhub Lambda Cloud Formation Template'
+Parameters:
+  accountProfile:
+    Description: provides the AWS account number as per enviroment
+    Type: String
+    Default: 795038802291
+  scriptsPath:
+    Type: String
+    Default: irx-accumhub-dev-data/deployment
+    Description: provides the bucket name where glue scripts, .whl and .zip needed for both Glue jobs and Lamda functions are resided.
+  triggerBucket:
+    Type: String
+    Default: irx-accumhub-cft-test
+    Description: provides the bucket name on which triggers are enabled for Lambda functions to execute. This may vary from 'dataBucket' as unit testing triggers has to be done on any dummy bucket to avoid overriding the existing triggers.
+  dataBucket:
+    Type: String
+    Default: irx-accumhub-dev-data
+    Description: provides the bucket name where the incoming/outgoing files data is processed and stored.
+  layerWithVersionArn:
+    Type: String
+    Default: arn:aws:lambda:us-east-1:795038802291:layer:irxah-common-py:1
+    Description: provides ARN of layer name and version to be used for importing code to Lambda functions
+  redshiftGlueArn:
+    Type: String
+    Default: arn:aws:iam::795038802291:role/irx-accum-phi-redshift-glue
+    Description: provides ARN of redshift-glue role that provides permissions to run execute copy/unload commands in redshift database
+  lambdaRoleArn:
+    Type: String
+    Default: arn:aws:iam::795038802291:role/irx-accum-lambda-s3-execute-role
+    Description: provides ARN of lambda role that provides permissions to execute Lambda functions
+  lambdaRoleArnMoveToCfx:
+    Type: String
+    Default: arn:aws:iam::795038802291:role/irx-accum-lambda-s3-role
+    Description: provides ARN of lambda role that provides permissions to execute Lambda function that copies outbound files to CFX s3 bucket.
+  topicName1:
+    Type: String
+    Default: irx_ahub_incoming_file_extraction_error_notification
+    Description: provides ARN of SNS topic for receiving email notification when encountered file extracion errors for inbound files
+  topicName4:
+    Type: String
+    Default: irx_ahub_processing_notification
+    Description: provides ARN of SNS topic for receiving email notification when encountered file extracion errors for inbound files
+  nameSuffix:
+    Description: provides suffix to each glue job/lambda function that varies from run to run. This will be useful to distinguish developer specific function while testing his code.
+    Type: String
+    Default: _mvp2
+  namePrefix:
+    Description: provides prefix to each glue job/lambda function that varies from run to run. This will be useful to distinguish developer specific function while testing his code.
+    Type: String
+    Default: irxah_
+  tagEnvironment:
+    Description: provides the environment name whose value will be replaced in few tags and also utilised by some environment variables in functions/jobs.
+    Type: String
+    Default: DEV
+  fileNameEnvironment:
+    Description: provides the environment name whose value will be replaced in incoming/outgoing file names in function variables
+    Type: String
+    Default: TST  
+  deploymentEnvironment:
+    Description: provides the environment name where deployment is happening and is used as environment variable by many functions
+    Type: String
+    Default: SIT
+  cfxBciBucket:
+    Description: provides the name of cfx bucket where outbound BCI files are to be sent
+    Type: String
+    Default: irx-nonprod-bci-east-1-sftp-app-outbound
+  cfxCvsBucket:
+    Description: provides the name of cfx bucket where outbound CVS files are to be sent
+    Type: String
+    Default: irx-nonprod-cvs-east-1-sftp-app-outbound
+  cfxBciFolder:
+    Description: provides the path of cfx folder where outbound BCI files are to be sent
+    Type: String
+    Default: sit/accums/
+  secretManager:
+    Description: complete name of the secret manager service that provides credentails for connecting to redshift database
+    Type: String
+    Default: irx-ahub-dv-redshift-cluster
+  skipDelivery:
+    Description: makes the decision whether to send the outbound file to cfx folder or not 
+    Type: String
+    Default: "FALSE"    
+  securityGroups:
+    Description: list of SecurityGroupIds in your AWS account VPC
+    Type: CommaDelimitedList
+    Default: sg-0f181993547c48186, sg-0411ae853409470fd, sg-077f4be9869df056a
+  subnetIds:
+    Description: list of subnetIds in your AWS account VPC
+    Type: CommaDelimitedList
+    Default: subnet-021888688bf4705c0, subnet-01460daa36a0b1381
+  tagRegion:
+    Description: provides the global region of AWS account used in tags
+    Type: String
+    Default: AWS -East 1
+  ruleStatus:
+    Description: provides the status of rule (ENABLED/DISABLED). We can turn off these rules by disbling them in lower environments.
+    Type: String
+    Default: ENABLED
+
+Resources:
+
+################################# Defining EventBridge rule for Lambda #################################
+
+  ScheduledRule:
+    Type: AWS::Events::Rule
+    #DeletionPolicy: Retain
+    Properties:
+      Description: runs every 30 minutes for file sla check
+      ScheduleExpression: cron(0/30 0-23 * * ? *)  # if you change anything here, change it in _2.yml and _3.yml also
+      Name: !Sub ${namePrefix}sla_check_schedule${nameSuffix}
+      # If you specify a name, you can't perform updates that require replacement of this resource.
+      # You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+      State: !Ref ruleStatus
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - slaScheduler
+              - Arn
+          Id: TargetLambdaSlaScheduler
+          # Id is the name for the target. It can be any string that will help you identify the target. Each target associated with a rule must have an Id unique for that rule.
+
+  # Event rule for sending alerts when glue job failure occur
+  GlueJobFailRule:
+   Type: AWS::Events::Rule
+   Properties:
+     Description: This rule is to detect if any Glue Job fails
+     EventPattern:
+       source:
+         - aws.glue
+       detail-type:
+        # It should be exactly like this.
+         - Glue Job State Change
+       detail:
+         jobName:
+           # Name all the jobs whose failure alerts are needed for
+           - !Sub ${namePrefix}export_client_file
+           - !Sub ${namePrefix}process_incoming_custom_file
+           - !Sub ${namePrefix}process_incoming_cvs_file
+           - !Sub ${namePrefix}process_incoming_file_load_in_database
+         state:
+           - FAILED
+     Name: !Sub ${namePrefix}glue_failure_rule
+     State: !Ref ruleStatus
+     Targets:
+       - Arn:
+           Fn::GetAtt:
+             - glueFailureMonitor
+             - Arn
+         Id: TargetglueFailureMonitor
+         # Id is the name for the target. It can be any string that will help you identify the target. Each target associated with a rule must have an Id unique for that rule.
+
+################################# Defining invoke permissions  #################################
+
+  InvokePermissionZipUnzipHandler:
+    Type: AWS::Lambda::Permission
+    DependsOn: incomingFileZipUnzip
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - incomingFileZipUnzip
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:s3:::${triggerBucket}
+
+  InvokePermissionZipFileAndSendToCfx:
+    Type: AWS::Lambda::Permission
+    DependsOn: zipFileAndSendToCfx
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - zipFileAndSendToCfx
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:s3:::${triggerBucket}
+
+  InvokePermissionSlaScheduler:
+    Type: AWS::Lambda::Permission
+    DependsOn: slaScheduler
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - slaScheduler
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+          - ScheduledRule
+          - Arn
+   
+  InvokePermissionGlueFailureMonitor:
+    Type: AWS::Lambda::Permission
+    DependsOn: glueFailureMonitor
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - glueFailureMonitor
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+          - GlueJobFailRule
+          - Arn 
+
+################################# Defining lambda functions  #################################
+
+  incomingFileZipUnzip:
+   Type: 'AWS::Lambda::Function'
+   Properties:
+     Code:
+       ZipFile: |
+         def lambda_handler(event, context):
+            return 'This is a Lambda Function';
+     Environment:
+       Variables:
+         #usage and implementation of hardcoded variables on lambdas was decommissioned post 11/20 release.
+         #But to generate an alert when an unknown file arrives (Ahub_666), we need basic info such as 'sns topic' and 'environment'
+         #as the db cant provide such metadata them from NONE client file object. That is why we are supplying these additional variables externally.
+         FILE_EXTRACTION_ERROR_NOTIFICATION_SNS_ARN: !Ref topicName1
+         ENVIRONMENT: !Ref deploymentEnvironment
+         SECRET_NAME: !Ref secretManager
+     FunctionName: !Sub ${namePrefix}unzip_and_process_incoming_file${nameSuffix}
+     Handler: 'irxah.handlers.unzip_and_process_incoming_file_handler'
+     Layers:
+       - !Ref layerWithVersionArn
+     Role: !Ref lambdaRoleArn
+     Tags:
+       -
+         Key: Date/Time
+         Value: 20200318101010
+       -
+         Key: Application Runtime Platform
+         Value: Python 3.7
+       -
+         Key: Opt In/Opt Out
+         Value: Yes
+       -
+         Key: BarometerIT
+         Value: 041800001L7T
+       -
+         Key: COSTCENTER
+         Value: 6590196400
+       -
+         Key: COMPLIANCE
+         Value: PHI
+       -
+         Key: IT Department
+         Value: Anbu Ramaiyan
+       -
+         Key: Database
+         Value: RedShift
+       -
+         Key: Resource Type
+         Value: LAMBDA
+       -
+         Key: NAME
+         Value: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL'
+       -
+         Key: Layer
+         Value: CODE
+       -
+         Key: Owner Department
+         Value: Saneeja Abdeen
+       -
+         Key: Virtualization Platform
+         Value: N/A
+       -
+         Key: Application
+         Value: AHUB
+       -
+         Key: Operating System
+         Value: N/A
+       -
+         Key: Company
+         Value: IRX
+       -
+         Key: Environment
+         Value: !Ref tagEnvironment
+       -
+         Key: Location
+         Value: !Ref tagRegion
+
+     MemorySize: 3008
+     Timeout: 900
+     Runtime: 'python3.7'
+     VpcConfig:
+       SecurityGroupIds: !Ref securityGroups
+       SubnetIds: !Ref subnetIds
+
+  zipFileAndSendToCfx:
+   Type: 'AWS::Lambda::Function'
+   Properties:
+     Code:
+      ZipFile: |
+         def lambda_handler(event, context):
+            return 'This is a Lambda Function';
+     Environment:
+       Variables:
+          SECRET_NAME: !Ref secretManager
+     FunctionName: !Sub ${namePrefix}zip_outgoing_file_and_send_to_cfx${nameSuffix}
+     Handler: 'irxah.handlers.zip_handler'
+     Layers:
+       - !Ref layerWithVersionArn
+     Role: !Ref lambdaRoleArnMoveToCfx
+     Tags:
+       -
+         Key: Date/Time
+         Value: 20200318101010
+       -
+         Key: Application Runtime Platform
+         Value: Python 3.7
+       -
+         Key: Opt In/Opt Out
+         Value: Yes
+       -
+         Key: BarometerIT
+         Value: 041800001L7T
+       -
+         Key: COSTCENTER
+         Value: 6590196400
+       -
+         Key: COMPLIANCE
+         Value: PHI
+       -
+         Key: IT Department
+         Value: Anbu Ramaiyan
+       -
+         Key: Database
+         Value: RedShift
+       -
+         Key: Resource Type
+         Value: LAMBDA
+       -
+         Key: NAME
+         Value: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL'
+       -
+         Key: Layer
+         Value: CODE
+       -
+         Key: Owner Department
+         Value: Saneeja Abdeen
+       -
+         Key: Virtualization Platform
+         Value: N/A
+       -
+         Key: Application
+         Value: AHUB
+       -
+         Key: Operating System
+         Value: N/A
+       -
+         Key: Company
+         Value: IRX
+       -
+         Key: Environment
+         Value: !Ref tagEnvironment
+       -
+         Key: Location
+         Value: !Ref tagRegion
+
+     MemorySize: 3008
+     Timeout: 900
+     Runtime: 'python3.7'
+     VpcConfig:
+       SecurityGroupIds: !Ref securityGroups
+       SubnetIds: !Ref subnetIds
+
+  slaScheduler:
+   Type: 'AWS::Lambda::Function'
+   Properties:
+     Code:
+      ZipFile: |
+         def lambda_handler(event, context):
+            return 'This is a Lambda Function';
+     Environment:
+       Variables:
+          SECRET_NAME: !Ref secretManager
+          S3_BUCKET_NAME: !Ref dataBucket
+     FunctionName: !Sub ${namePrefix}sla_scheduler${nameSuffix}
+     Handler: 'irxah.handlers.schedule_handler'
+     Layers:
+       - !Ref layerWithVersionArn
+     Role: !Ref lambdaRoleArnMoveToCfx
+     Tags:
+       -
+         Key: Date/Time
+         Value: 20200318101010
+       -
+         Key: Application Runtime Platform
+         Value: Python 3.7
+       -
+         Key: Opt In/Opt Out
+         Value: Yes
+       -
+         Key: BarometerIT
+         Value: 041800001L7T
+       -
+         Key: COSTCENTER
+         Value: 6590196400
+       -
+         Key: COMPLIANCE
+         Value: PHI
+       -
+         Key: IT Department
+         Value: Anbu Ramaiyan
+       -
+         Key: Database
+         Value: RedShift
+       -
+         Key: Resource Type
+         Value: LAMBDA
+       -
+         Key: NAME
+         Value: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL'
+       -
+         Key: Layer
+         Value: CODE
+       -
+         Key: Owner Department
+         Value: Saneeja Abdeen
+       -
+         Key: Virtualization Platform
+         Value: N/A
+       -
+         Key: Application
+         Value: AHUB
+       -
+         Key: Operating System
+         Value: N/A
+       -
+         Key: Company
+         Value: IRX
+       -
+         Key: Environment
+         Value: !Ref tagEnvironment
+       -
+         Key: Location
+         Value: !Ref tagRegion
+
+     MemorySize: 3008
+     Timeout: 900
+     Runtime: 'python3.7'
+     VpcConfig:
+       SecurityGroupIds: !Ref securityGroups
+       SubnetIds: !Ref subnetIds
+
+  glueFailureMonitor:
+   Type: 'AWS::Lambda::Function'
+   Properties:
+     Code:
+      ZipFile: |
+         def lambda_handler(event, context):
+            return 'This is a Lambda Function';
+     Environment:
+       Variables:
+          ENVIRONMENT: !Ref deploymentEnvironment
+          PROCESSING_NOTIFICATION_SNS: !Ref topicName4
+     FunctionName: !Sub ${namePrefix}glue_failure_monitor${nameSuffix}
+     Handler: 'irxah.handlers.glue_failure_handler'
+     Layers:
+       - !Ref layerWithVersionArn
+     Role: !Ref lambdaRoleArnMoveToCfx
+     Tags:
+       -
+         Key: Date/Time
+         Value: 20200318101010
+       -
+         Key: Application Runtime Platform
+         Value: Python 3.7
+       -
+         Key: Opt In/Opt Out
+         Value: Yes
+       -
+         Key: BarometerIT
+         Value: 041800001L7T
+       -
+         Key: COSTCENTER
+         Value: 6590196400
+       -
+         Key: COMPLIANCE
+         Value: PHI
+       -
+         Key: IT Department
+         Value: Anbu Ramaiyan
+       -
+         Key: Database
+         Value: RedShift
+       -
+         Key: Resource Type
+         Value: LAMBDA
+       -
+         Key: NAME
+         Value: !Sub 'IRX-AHUB-GLUE-${tagEnvironment}-ETL'
+       -
+         Key: Layer
+         Value: CODE
+       -
+         Key: Owner Department
+         Value: Saneeja Abdeen
+       -
+         Key: Virtualization Platform
+         Value: N/A
+       -
+         Key: Application
+         Value: AHUB
+       -
+         Key: Operating System
+         Value: N/A
+       -
+         Key: Company
+         Value: IRX
+       -
+         Key: Environment
+         Value: !Ref tagEnvironment
+       -
+         Key: Location
+         Value: !Ref tagRegion
+
+     MemorySize: 3008
+     Timeout: 900
+     Runtime: 'python3.7'
+     VpcConfig:
+       SecurityGroupIds: !Ref securityGroups
+       SubnetIds: !Ref subnetIds
+
+## <add any new lambda here>   # if added the same needs to be done in _2.yml and _3.yml
