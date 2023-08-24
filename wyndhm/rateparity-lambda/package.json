@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "serverless-aws-resource-names": "^0.1.2",
+    "serverless-deployment-bucket": "^1.6.0",
+    "serverless-layers": "^2.6.1",
+    "serverless-plugin-aws-alerts": "^1.7.5",
+    "serverless-python-requirements": "^6.0.0"
+  }
+}

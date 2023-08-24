@@ -1,0 +1,50 @@
+[
+  {
+    "ParameterKey": "IAMRoleName",
+    "ParameterValue": "whg-iam-role-stay-data_error-glue-one-prod"
+  },
+  {
+    "ParameterKey": "IAMPolicyName",
+    "ParameterValue": "whg-iam-policy-stay-data_error-glue-one-prod"
+  },
+  {
+    "ParameterKey": "JobName",
+    "ParameterValue": "WHG-Glue-UW2-Stay-Data-Error-Email-Report-PROD"
+  },
+  {
+    "ParameterKey": "ScriptBucketName",
+    "ParameterValue": "whg-s3-usw2a-codebase-prod"
+  },
+  {
+    "ParameterKey": "SchemaName",
+    "ParameterValue": "dwstg"
+  },
+  {
+    "ParameterKey": "LogBucketName",
+    "ParameterValue": "whg-s3-usw2a-blueterminal-prod"
+  },
+  {
+    "ParameterKey": "ErrorBucketName",
+    "ParameterValue": "whg-s3-usw2a-errorterminal-prod"
+  },
+  {
+    "ParameterKey": "Database",
+    "ParameterValue": "dvprod"
+  },
+  {
+    "ParameterKey": "SNSTopic",
+    "ParameterValue": "Stay-Data-Error-Email-Alerts-PROD"
+  },
+  {
+    "ParameterKey": "RedshiftConnection",
+    "ParameterValue": "Redshift-Prod"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "PROD"
+  },
+  {
+    "ParameterKey": "GlueTriggerName",
+    "ParameterValue": "WHG-Glue-GlueTrigger-UW2-StayDQReport-PROD"
+  }
+]

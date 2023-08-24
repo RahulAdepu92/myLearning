@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/wyndhm/nightlyaccruals-target" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/wyndhm/whr_bloomberg-currency" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/wyndhm/whr_loyalty-replatform" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/wyndhm/whr_reviq-ideas" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/wyndhm/whr_room-inventory" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/wyndhm/whr_sabre-folio" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/wyndhm/whr_sabre-reservation" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/wyndhm/whr_shared-service" vcs="Git" />
+  </component>
+</project>

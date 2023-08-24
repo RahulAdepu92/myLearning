@@ -1,0 +1,302 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Rate Parity Hotels Loading'
+
+####### Declaring parameters as below
+
+Parameters:
+    IAMRoleName:
+      Type: String
+    IAMPolicyName:
+      Type: String
+    ScriptBucketName:
+      Type: String
+    BlueBucketName:
+      Type: String
+    GoldBucketName:
+      Type: String
+    RedBucketName:
+      Type: String
+    ErrorBucketName:
+      Type: String
+    RedshiftConnectionStage:
+      Type: String
+    RedshiftConnectionDW:
+      Type: String
+    GlueLogGroupName:
+      Type: String
+    SNSTopicName:
+      Type: String
+    RedshiftDatabase:
+      Type: String
+    RsSchemaNameDW:
+      Type: String
+    RsSchemaNameSTG:
+      Type: String
+    SNSEmailNotification:   
+      Type: CommaDelimitedList
+    StageTable:
+      Type: String
+    Env:  
+      Type: String
+    FactTable:
+      Type: String
+    ProcessTable:
+      Type: String
+    GlueErrorTable:
+      Type: String
+    STLLoadErrorView:
+      Type: String
+    TagName:
+      Type: String
+    RecipientlistForStatus:
+      Type: String
+    RecipientlistForReport:
+      Type: String
+    Sender:
+      Type: String
+    MaxRetries:
+      Type: String
+####### Adding Glue Job below
+Resources:
+    RateParityHotelsStgload:
+        Type: "AWS::Glue::Job"
+        Properties:
+            Role: !Ref GlueJobRole
+            Name: !Sub "WHG-Glue-USW2-Rate-Parity-Hotels-Stg-load-${Env}"
+            GlueVersion: 3.0
+            Command: 
+                Name : glueetl
+                PythonVersion: 3
+                ScriptLocation : !Sub s3://${ScriptBucketName}/disparity-fee-drr/rate-parity-analytics-glue/scripts/glue/rate_parity_hotels_stg.py
+            DefaultArguments: 
+                "--TempDir" : !Sub 's3://${ScriptBucketName}/disparity-fee-drr/temp/glue/RateParityHotelsStg'
+                "--enable-metrics": ''
+                "--job-bookmark-option": "job-bookmark-enable"
+                "--enable-continuous-cloudwatch-log": true
+                "--enable-continuous-log-filter": true
+                "--ScriptBucketName": !Ref ScriptBucketName
+                "--blue_bucket": !Ref BlueBucketName
+                "--gold_bucket": !Ref GoldBucketName
+                "--source_bucket": !Ref GoldBucketName
+                "--redshiftconnstage": !Ref RedshiftConnectionStage
+                "--redshiftconndw": !Ref RedshiftConnectionDW
+                "--rs_schema_name_dw": !Ref RsSchemaNameDW
+                "--rsdb": !Ref RedshiftDatabase
+                "--sns": !Ref SnsTopicOne
+                "--env": !Ref Env
+                "--audittable": !Ref ProcessTable
+                "--errortable": !Ref GlueErrorTable
+                "--load_error_view": !Ref STLLoadErrorView
+                "--schemanamestg": !Ref RsSchemaNameSTG
+                "--stagetablename": !Ref StageTable
+                "--recipientlist": !Ref RecipientlistForStatus
+                "--sender": !Ref Sender
+            MaxRetries: !Ref MaxRetries
+            MaxCapacity: 5
+            Description: "Glue job for Stage load"
+            Connections:
+                Connections:
+                    - !Ref RedshiftConnectionStage
+                    - !Ref RedshiftConnectionDW
+            Tags:
+                WHG-T-SER: "Data Services" 
+                WHG-B-APPNM: "RateShopFee"
+                WHG-T-ENV: !Ref TagName
+                WHG-T-POC: "Derek Barbara"
+                WHG-T-COMP: "Yes"
+                WHG-T-ENC: "Yes"
+                WHG-B-PRJ: "PRJ0091669"
+                WHG-B-BO: "Paul Rickert"
+                WHG-B-DEP: "Data Services"
+                WHG-LOB: "WHG"
+                WHG-O-AUT: "Yes"
+                WHG-O-DDT: "NA"
+                WHG-REG: "USW2"
+                WHG-T-TIER: "APP Glue"
+
+    RateParityHotelsFactload:
+        Type: "AWS::Glue::Job"
+        Properties:
+            Role: !Ref GlueJobRole
+            Name: !Sub "WHG-Glue-USW2-Rate-Parity-Hotels-Fact-load-${Env}"
+            GlueVersion: 3.0
+            Command: 
+                Name : glueetl
+                PythonVersion: 3
+                ScriptLocation : !Sub s3://${ScriptBucketName}/disparity-fee-drr/rate-parity-analytics-glue/scripts/glue/rate_parity_hotels_fact.py
+            DefaultArguments: 
+                "--TempDir" : !Sub 's3://${ScriptBucketName}/disparity-fee-drr/temp/glue/RateParityHotelsFact'
+                "--enable-metrics": ''
+                "--enable-continuous-cloudwatch-log": true
+                "--enable-continuous-log-filter": true
+                "--ScriptBucketName": !Ref ScriptBucketName
+                "--blue_bucket": !Ref BlueBucketName
+                "--gold_bucket": !Ref GoldBucketName
+                "--source_bucket": !Ref RedBucketName
+                "--redshiftconnstage": !Ref RedshiftConnectionStage
+                "--redshiftconndw": !Ref RedshiftConnectionDW
+                "--rs_schema_name_dw": !Ref RsSchemaNameDW
+                "--rsdb": !Ref RedshiftDatabase
+                "--sns": !Ref SnsTopicOne
+                "--env": !Ref Env
+                "--audittable": !Ref ProcessTable
+                "--errortable": !Ref GlueErrorTable
+                "--load_error_view": !Ref STLLoadErrorView
+                "--schemanamestg": !Ref RsSchemaNameSTG
+                "--facttablename": !Ref FactTable
+                "--stagetablename": !Ref StageTable
+                "--recipientlistforstatus": !Ref RecipientlistForStatus
+                "--recipientlistforreport": !Ref RecipientlistForReport
+                "--sender": !Ref Sender
+            MaxRetries: !Ref MaxRetries
+            MaxCapacity: 5
+            Description: "Glue job for fact load"
+            Connections:
+                Connections:
+                    - !Ref RedshiftConnectionStage
+                    - !Ref RedshiftConnectionDW
+            Tags:
+                WHG-T-SER: "Data Services" 
+                WHG-B-APPNM: "RateShopFee"
+                WHG-T-ENV: !Ref TagName
+                WHG-T-POC: "Derek Barbara"
+                WHG-T-COMP: "Yes"
+                WHG-T-ENC: "Yes"
+                WHG-B-PRJ: "PRJ0091669"
+                WHG-B-BO: "Paul Rickert"
+                WHG-B-DEP: "Data Services"
+                WHG-LOB: "WHG"
+                WHG-O-AUT: "Yes"
+                WHG-O-DDT: "NA"
+                WHG-REG: "USW2"
+                WHG-T-TIER: "APP Glue"             
+    
+    
+    SnsTopicOne:
+      Type: "AWS::SNS::Topic"
+      Properties:
+        TopicName: !Ref SNSTopicName
+    SubscriptionOne:
+        Type: "AWS::SNS::Subscription" 
+        Properties:
+            TopicArn: !Ref SnsTopicOne
+            Protocol: email
+            Endpoint: !Select [0, !Ref SNSEmailNotification]
+    Subscriptiontwo:
+        Type: "AWS::SNS::Subscription" 
+        Properties:
+            TopicArn: !Ref SnsTopicOne
+            Protocol: email
+            Endpoint: !Select [1, !Ref SNSEmailNotification]
+    Subscriptionthree:
+      Type: "AWS::SNS::Subscription"
+      Properties:
+        TopicArn: !Ref SnsTopicOne
+        Protocol: email
+        Endpoint: !Select [ 2, !Ref SNSEmailNotification ]
+    
+    
+###### Adding Glue log group
+    GlueLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: !Ref GlueLogGroupName
+        
+    RateParityHotelsWorkflow:
+        Type: AWS::Glue::Workflow
+        Properties: 
+            Name: !Sub "WHG-Glue-WorkFlow-USW2-Rate-Parity-Hotels-${Env}"
+            Description: Workflow to trigger RateParity Hotels jobs
+    StageTrigger:
+        Type: AWS::Glue::Trigger
+        Properties:
+            Name: !Sub "WHG-Glue-Trigger-USW2-Rate-Parity-Hotels-Stg-${Env}"
+            Type: ON_DEMAND
+            Description: "Trigger to start Stg load"
+            Actions: 
+                - JobName: !Ref RateParityHotelsStgload
+            WorkflowName: !Ref RateParityHotelsWorkflow
+    FactTrigger:
+        Type: AWS::Glue::Trigger
+        Properties:
+            Name: !Sub "WHG-Glue-Trigger-USW2-Rate-Parity-Hotels-Fact-${Env}"
+            Type: CONDITIONAL
+            Description: "Trigger to start Fact load"
+            Actions: 
+                - JobName: !Ref RateParityHotelsFactload
+            WorkflowName: !Ref RateParityHotelsWorkflow
+            StartOnCreation: true
+            Predicate:
+                Logical: ANY
+                Conditions:
+                    -   LogicalOperator: EQUALS
+                        JobName: !Ref RateParityHotelsStgload
+                        State: SUCCEEDED  
+    
+
+####### Adding Glue Job IAM Role
+    GlueJobRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        RoleName: !Ref IAMRoleName
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            -
+              Effect: "Allow"
+              Principal:
+                Service:
+                  - "glue.amazonaws.com"
+              Action:
+                - "sts:AssumeRole"
+        Policies:
+          - PolicyName: !Ref IAMPolicyName
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                -
+                  Effect: "Allow"
+                  Action:
+                    - "s3:GetObject"
+                    - "s3:PutObject"
+                    - "s3:DeleteObject"
+                  Resource:
+                    - !Sub "arn:aws:s3:::${BlueBucketName}/*"
+                    - !Sub "arn:aws:s3:::${ScriptBucketName}/*"
+                    - !Sub "arn:aws:s3:::${ErrorBucketName}/*"
+                    - !Sub "arn:aws:s3:::${RedBucketName}/*"
+                    - !Sub "arn:aws:s3:::${GoldBucketName}/*"
+                -
+                  Effect: "Allow"
+                  Action:
+                    - "s3:ListBucket"
+                  Resource:
+                    - !Sub "arn:aws:s3:::${ScriptBucketName}"
+                    - !Sub "arn:aws:s3:::${BlueBucketName}"
+                    - !Sub "arn:aws:s3:::${ErrorBucketName}"
+                    - !Sub "arn:aws:s3:::${RedBucketName}"
+                    - !Sub "arn:aws:s3:::${GoldBucketName}"
+                -
+                  Effect: "Allow"
+                  Action:
+                    - "sns:Publish"
+                  Resource:
+                    - !Ref SnsTopicOne
+                - 
+                  Effect: "Allow"
+                  Action:
+                    - "ses:SendEmail"
+                    - "ses:SendRawEmail"
+                  Resource: 
+                    - "*"
+                - 
+                  Effect: 'Allow'
+                  Action:
+                    - 'glue:StartJobRun'
+                    - 'glue:GetJobRuns'
+                  Resource:
+                    - "*"
+                    
+             
+        ManagedPolicyArns:
+          - "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
