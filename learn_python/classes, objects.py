@@ -6,27 +6,27 @@
 #Example1:
 
 class Point:    #point is the class; starting letter of class should be capital
-	def move(self):  #self is a parameter here generated automatically
-	print("move")
-	
-	def draw(self):
-	print("draw")
-	
-	def paint(self):
-	print("paint")
-	
-point1 = point()   #point1 is the object
+    def move(self):  #self is a parameter here generated automatically
+        print("move")
+    
+    def draw(self):
+        print("draw")
+    
+    def paint(self):
+        print("paint")
+    
+point1 = Point()   #point1 is the object
 
 point1.move()  #move is the method
->>move
+#>>move
 
 point1.draw()   #point1 is the object
->>draw    		#draw is the method
+#>>draw    		#draw is the method
 
 
-point2 = point()   #point2 is another object
+point2 = Point()   #point2 is another object
 point2.paint()  #paint is the method
->>paint  
+#>>paint
 
 
 ## __init__ (called as initialization) is a method and is considered a constructor
@@ -34,18 +34,18 @@ point2.paint()  #paint is the method
 #Example2:
 
 class Person:
-	def __init__(self, name):
-		self.name = name
-		
-	def talk(self):
-		print(f"hi {self.name}")
-		
+    def __init__(self, name):
+        self.name = name
+        
+    def talk(self):
+        print(f"hi {self.name}")
+        
 rahul = Person("Rahul Adepu")
 print(rahul.name)
->>Rahul Adepu
+#>>Rahul Adepu
 
 rahul.talk()
->>hi Rahul Adepu
+#>>hi Rahul Adepu
 
 #Example3:
 
@@ -69,9 +69,22 @@ class Vehicle(object):
         Drive the car
         """
         return "I'm driving!"
-		
-		
+        
+        
 model = Vehicle("blue", "2", "4")
 print(model.color)
->>blue
+#>>blue
 print(model.brake)
+
+
+##############
+
+class Subject:
+    def __init__(self, name):
+        self.name = name
+
+    def science(self):
+        print(f"the subject is: {self.name}")
+
+subject1 = Subject("physics")
+subject1.science()

@@ -42,14 +42,14 @@ print(file.readlines())		   #reads the entire file line by line and displays all
 print(len(file.readlines()))   #gives the total number of rows or lines
 
 file.seek(0)                   #to close the above opened file. 
-							   #Everytime you open a file and execute some task, close it using this command. Else, go by 'with' statement that automatically closes the opened file.
+                               #Everytime you open a file and execute some task, close it using this command. Else, go by 'with' statement that automatically closes the opened file.
 
 
 
 
--Instead you can write:
+#Instead you can write:
 with open(r"C:\Users\ag20492\Desktop\ACCUMHUB\srcfiles\MVP2\ACCDLYINT_TST_BCIINRX_200421065111-1k records.txt",'r') as file:
-	print(len(file.readlines()))
+    print(len(file.readlines()))
 
 
 #####to check row level duplicates#####
