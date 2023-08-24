@@ -1,19 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="c6747e0c-0fd4-4a7c-bb21-67b4a889dce3" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/whg1.zip" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/whg2.zip" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/whg3.zip" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/whg4.zip" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/wyndhm/nightlyaccruals-target/.idea/nightlyaccruals-target.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/wyndhm/whr_bloomberg-currency/.github/workflows/CI.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/wyndhm/whr_loyalty-replatform/.github/workflows/CI.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/wyndhm/whr_reviq-ideas/.github/workflows/CI.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/wyndhm/whr_sabre-folio/.github/workflows/CI.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/wyndhm/whr_sabre-reservation/.github/workflows/CI.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/wyndhm/whr_shared-service/.github/workflows/CI.yml" beforeDir="false" />
-    </list>
+    <list default="true" id="c6747e0c-0fd4-4a7c-bb21-67b4a889dce3" name="Changes" comment="latest code addition" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -49,6 +37,7 @@
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File" value="Python&#10;PLAIN_TEXT" />
@@ -158,6 +147,14 @@
       <option name="presentableId" value="Default" />
       <updated>1638957078422</updated>
     </task>
+    <task id="LOCAL-00001" summary="latest code addition">
+      <created>1692859464942</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1692859464942</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -170,5 +167,10 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+    <MESSAGE value="latest code addition" />
+    <option name="LAST_COMMIT_MESSAGE" value="latest code addition" />
   </component>
 </project>
