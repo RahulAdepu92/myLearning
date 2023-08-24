@@ -1,10 +1,11 @@
 ##if statement##
 
 #a boolean_expression returns only TRUE/FALSE (ex: a=2,b=3  --> boolean_expression1 = a < b, boolean_expression1 = a > b)
-
-if <boolean_expression1>:
+a= 5
+b =2
+if a==b:
     print("")
-elif <boolean_expression2>:
+elif a<b:
     print("")
 else:
     print("")
@@ -58,10 +59,10 @@ for x in product_prices:
     total_bill += x
 print(f"Your bill is: {total_bill}")
 
-
+"""
 refernce links:
 
 https://www.w3schools.com/python/python_while_loops.asp
 https://www.programiz.com/python-programming/for-loop
-
+"""
 
